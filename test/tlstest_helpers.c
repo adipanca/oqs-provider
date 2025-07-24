@@ -2,15 +2,12 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-#include "test_common.h"
-
 #define MAXLOOPS 1000000
 
 /* Stolen from openssl/tests/sslapitest.c: */
 int create_cert_key(OSSL_LIB_CTX *libctx, char *algname, char *certfilename,
                     char *privkeyfilename) {
-    EVP_PKEY_CTX *evpctx =
-        EVP_PKEY_CTX_new_from_name(libctx, algname, OQSPROV_PROPQ);
+    EVP_PKEY_CTX *evpctx = EVP_PKEY_CTX_new_from_name(libctx, algname, NULL);
     EVP_PKEY *pkey = NULL;
     X509 *x509 = X509_new();
     X509_NAME *name = NULL;
@@ -46,39 +43,23 @@ int create_cert_key(OSSL_LIB_CTX *libctx, char *algname, char *certfilename,
 }
 /* end steal */
 int create_tls1_3_ctx_pair(OSSL_LIB_CTX *libctx, SSL_CTX **sctx, SSL_CTX **cctx,
-                           char *certfile, char *privkeyfile, int dtls_flag) {
+                           char *certfile, char *privkeyfile) {
     SSL_CTX *serverctx = NULL, *clientctx = NULL;
 
     if (sctx == NULL || cctx == NULL)
         goto err;
 
-    if (dtls_flag) {
-        serverctx = SSL_CTX_new_ex(libctx, NULL, DTLS_server_method());
-        clientctx = SSL_CTX_new_ex(libctx, NULL, DTLS_client_method());
-    } else {
-        serverctx = SSL_CTX_new_ex(libctx, NULL, TLS_server_method());
-        clientctx = SSL_CTX_new_ex(libctx, NULL, TLS_client_method());
-    }
+    serverctx = SSL_CTX_new_ex(libctx, NULL, TLS_server_method());
+    clientctx = SSL_CTX_new_ex(libctx, NULL, TLS_client_method());
 
     if (serverctx == NULL || clientctx == NULL)
         goto err;
 
     SSL_CTX_set_options(serverctx, SSL_OP_ALLOW_CLIENT_RENEGOTIATION);
-    if (dtls_flag) {
-#ifdef DTLS1_3_VERSION
-        if (!SSL_CTX_set_min_proto_version(serverctx, DTLS1_3_VERSION) ||
-            !SSL_CTX_set_max_proto_version(serverctx, DTLS1_3_VERSION) ||
-            !SSL_CTX_set_min_proto_version(clientctx, DTLS1_3_VERSION) ||
-            !SSL_CTX_set_max_proto_version(clientctx, DTLS1_3_VERSION))
-#endif
-            goto err;
-    } else {
-        if (!SSL_CTX_set_min_proto_version(serverctx, TLS1_3_VERSION) ||
-            !SSL_CTX_set_max_proto_version(serverctx, TLS1_3_VERSION) ||
-            !SSL_CTX_set_min_proto_version(clientctx, TLS1_3_VERSION) ||
-            !SSL_CTX_set_max_proto_version(clientctx, TLS1_3_VERSION))
-            goto err;
-    }
+    SSL_CTX_set_min_proto_version(serverctx, TLS1_3_VERSION);
+    SSL_CTX_set_max_proto_version(serverctx, TLS1_3_VERSION);
+    SSL_CTX_set_min_proto_version(clientctx, TLS1_3_VERSION);
+    SSL_CTX_set_max_proto_version(clientctx, TLS1_3_VERSION);
 
     if (!SSL_CTX_use_certificate_file(serverctx, certfile, SSL_FILETYPE_PEM))
         goto err;
@@ -100,7 +81,7 @@ err:
 }
 
 int create_tls_objects(SSL_CTX *serverctx, SSL_CTX *clientctx, SSL **sssl,
-                       SSL **cssl, int use_dgram) {
+                       SSL **cssl) {
     SSL *serverssl = NULL, *clientssl = NULL;
     BIO *s_to_c_bio = NULL, *c_to_s_bio = NULL;
 
@@ -113,19 +94,8 @@ int create_tls_objects(SSL_CTX *serverctx, SSL_CTX *clientctx, SSL **sssl,
     if (serverssl == NULL || clientssl == NULL)
         goto err;
 
-    if (use_dgram) {
-#if (OPENSSL_VERSION_PREREQ(3, 2))
-        s_to_c_bio = BIO_new(BIO_s_dgram_mem());
-        c_to_s_bio = BIO_new(BIO_s_dgram_mem());
-#else
-        fprintf(stderr, "No DGRAM memory supported in this OpenSSL version.\n");
-        ERR_print_errors_fp(stderr);
-        goto err;
-#endif
-    } else {
-        s_to_c_bio = BIO_new(BIO_s_mem());
-        c_to_s_bio = BIO_new(BIO_s_mem());
-    }
+    s_to_c_bio = BIO_new(BIO_s_mem());
+    c_to_s_bio = BIO_new(BIO_s_mem());
 
     if (s_to_c_bio == NULL || c_to_s_bio == NULL)
         goto err;

@@ -16,6 +16,7 @@
 static OSSL_LIB_CTX *libctx = NULL;
 static char *modulename = NULL;
 static char *configfile = NULL;
+static char *testpropq = NULL;
 static OSSL_LIB_CTX *keyctx = NULL;
 static OSSL_LIB_CTX *testctx = NULL;
 
@@ -61,8 +62,8 @@ static EVP_PKEY *oqstest_make_key(const char *type, EVP_PKEY *template,
     }
 
     ctx = (template != NULL)
-              ? EVP_PKEY_CTX_new_from_pkey(keyctx, template, OQSPROV_PROPQ)
-              : EVP_PKEY_CTX_new_from_name(keyctx, type, OQSPROV_PROPQ);
+              ? EVP_PKEY_CTX_new_from_pkey(keyctx, template, testpropq)
+              : EVP_PKEY_CTX_new_from_name(keyctx, type, testpropq);
 
     /*
      * No real need to check the errors other than for the cascade

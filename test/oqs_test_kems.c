@@ -27,11 +27,11 @@ static int test_oqs_kems(const char *kemalg_name) {
         return 1;
     }
     // test with built-in digest only if default provider is active:
-    // limit testing to oqsprovider as other implementations may support
-    // different key formats than what is defined by NIST
+    // TBD revisit when hybrids are activated: They always need default
+    // provider
     if (OSSL_PROVIDER_available(libctx, "default")) {
-        testresult &= (ctx = EVP_PKEY_CTX_new_from_name(
-                           libctx, kemalg_name, OQSPROV_PROPQ)) != NULL &&
+        testresult &= (ctx = EVP_PKEY_CTX_new_from_name(libctx, kemalg_name,
+                                                        NULL)) != NULL &&
                       EVP_PKEY_keygen_init(ctx) && EVP_PKEY_generate(ctx, &key);
 
         if (!testresult)
@@ -40,8 +40,7 @@ static int test_oqs_kems(const char *kemalg_name) {
         ctx = NULL;
 
         testresult &=
-            (ctx = EVP_PKEY_CTX_new_from_pkey(libctx, key, OQSPROV_PROPQ)) !=
-                NULL &&
+            (ctx = EVP_PKEY_CTX_new_from_pkey(libctx, key, NULL)) != NULL &&
             EVP_PKEY_encapsulate_init(ctx, NULL) &&
             EVP_PKEY_encapsulate(ctx, NULL, &outlen, NULL, &seclen) &&
             (out = OPENSSL_malloc(outlen)) != NULL &&
